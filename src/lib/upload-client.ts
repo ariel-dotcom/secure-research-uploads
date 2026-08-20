@@ -121,7 +121,9 @@ function sendBytes(
 				return;
 			}
 
-			reject(new UploadError({ message: describeStorageError(request.status, request.responseText) }));
+			reject(
+				new UploadError({ message: describeStorageError(request.status, request.responseText) })
+			);
 		});
 
 		request.addEventListener('error', () => {

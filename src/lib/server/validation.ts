@@ -16,8 +16,7 @@ export interface ValidUploadInput {
 }
 
 export type ValidationResult =
-	| { ok: true; value: ValidUploadInput }
-	| { ok: false; errors: Record<string, string> };
+	{ ok: true; value: ValidUploadInput } | { ok: false; errors: Record<string, string> };
 
 /** Sample identifiers come from lab systems: letters, digits, dash, underscore. */
 const SAMPLE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;

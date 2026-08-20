@@ -27,6 +27,12 @@ export const DEFAULT_USER_ID = SEED.users[0].id;
 
 /** Idempotent, so it is safe on every boot. Companies before users. */
 export async function seedDevData(database: typeof db): Promise<void> {
-	await database.insert(companies).values([...SEED.companies]).onConflictDoNothing();
-	await database.insert(users).values([...SEED.users]).onConflictDoNothing();
+	await database
+		.insert(companies)
+		.values([...SEED.companies])
+		.onConflictDoNothing();
+	await database
+		.insert(users)
+		.values([...SEED.users])
+		.onConflictDoNothing();
 }

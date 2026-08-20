@@ -58,11 +58,11 @@ wrong, and the failure UI would be unreachable in a demo.
 Both are in `docker-compose.yml` and start with the `docker compose up -d`
 above. Nothing needs to be clicked in any console.
 
-| Service  | Where                                          | Credentials                        |
-| -------- | ---------------------------------------------- | ---------------------------------- |
-| Postgres | `localhost:5432`, database `research_uploads`  | `research` / `research`            |
-| MinIO    | `localhost:9000` (S3 API)                      | `minio-dev-user` / `minio-dev-password` |
-| MinIO    | <http://localhost:9001> (web console, optional) | as above                           |
+| Service  | Where                                           | Credentials                             |
+| -------- | ----------------------------------------------- | --------------------------------------- |
+| Postgres | `localhost:5432`, database `research_uploads`   | `research` / `research`                 |
+| MinIO    | `localhost:9000` (S3 API)                       | `minio-dev-user` / `minio-dev-password` |
+| MinIO    | <http://localhost:9001> (web console, optional) | as above                                |
 
 Both are bound to `127.0.0.1`, so neither is reachable from the local network.
 
@@ -100,12 +100,12 @@ URL stops working, that confirm cannot find an object that was never uploaded �
 are all properties of the storage service. A mocked MinIO would only prove that
 the mock agrees with my assumptions, which is the one thing not in doubt.
 
-| File                                     | What it covers                                                       |
-| ---------------------------------------- | -------------------------------------------------------------------- |
-| `src/lib/server/authz.test.ts`           | the access rule itself, with plain objects                            |
-| `src/lib/server/object-key.test.ts`      | filename sanitising and path traversal                                |
-| `src/lib/server/validation.test.ts`      | metadata rules                                                        |
-| `src/lib/server/access-control.test.ts`  | the four tests the brief requires, numbered to match                  |
+| File                                        | What it covers                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `src/lib/server/authz.test.ts`              | the access rule itself, with plain objects                          |
+| `src/lib/server/object-key.test.ts`         | filename sanitising and path traversal                              |
+| `src/lib/server/validation.test.ts`         | metadata rules                                                      |
+| `src/lib/server/access-control.test.ts`     | the four tests the brief requires, numbered to match                |
 | `src/lib/server/upload-reliability.test.ts` | four extra tests: missing object, double confirm, traversal, expiry |
 
 ## 4. Data model
@@ -122,18 +122,18 @@ fake one.
 
 **`uploads`** — one row per image:
 
-| Column                        | Why it is there                                                                     |
-| ----------------------------- | ----------------------------------------------------------------------------------- |
-| `id` (uuid)                   | primary key, and part of the object key                                              |
-| `sample_id`                   | which sample the image belongs to                                                    |
-| `filename`                    | the name the user sent, kept for display and for the download filename               |
-| `classification`              | `internal`, `confidential` or `restricted` — see "Questions I would raise"           |
-| `company_id`                  | the owning company. **This single column is the entire access rule.**                |
-| `object_key`                  | where the bytes are in MinIO. Generated server-side; never leaves the server         |
-| `status`                      | `pending`, `uploaded`, `queued`, `processing`, `completed`, `failed`                 |
-| `size_bytes`, `content_type`  | filled at confirm time from MinIO's view of the object, not from the browser's claim |
-| `failure_reason`              | shown to the user when processing fails                                              |
-| `created_at`, `updated_at`    | timestamps                                                                           |
+| Column                       | Why it is there                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| `id` (uuid)                  | primary key, and part of the object key                                              |
+| `sample_id`                  | which sample the image belongs to                                                    |
+| `filename`                   | the name the user sent, kept for display and for the download filename               |
+| `classification`             | `internal`, `confidential` or `restricted` — see "Questions I would raise"           |
+| `company_id`                 | the owning company. **This single column is the entire access rule.**                |
+| `object_key`                 | where the bytes are in MinIO. Generated server-side; never leaves the server         |
+| `status`                     | `pending`, `uploaded`, `queued`, `processing`, `completed`, `failed`                 |
+| `size_bytes`, `content_type` | filled at confirm time from MinIO's view of the object, not from the browser's claim |
+| `failure_reason`             | shown to the user when processing fails                                              |
+| `created_at`, `updated_at`   | timestamps                                                                           |
 
 Indexed on `(company_id, created_at)`, which is the only read pattern the app
 has: every list query is scoped to one company and ordered by recency.
@@ -162,8 +162,8 @@ them in one place makes both worse.
   25 MB upload never passes through the SvelteKit process. The server handles a
   small JSON request and a signature, not a file stream.
 
-The database is the source of truth about *what exists and who owns it*. Object
-storage is the source of truth about *the bytes*. The `object_key` column is
+The database is the source of truth about _what exists and who owns it_. Object
+storage is the source of truth about _the bytes_. The `object_key` column is
 the only link between them.
 
 ## 6. Upload flow, and the presigned URL lifecycle
@@ -199,15 +199,15 @@ That is why there is a `pending` status — see "Questions I would raise".
 
 **What the presigned URL allows.** It is a POST policy, not a plain presigned
 PUT. A PUT signature says "you may write to this key"; it cannot constrain how
-much you write. A POST policy signs the *conditions*, so MinIO enforces them
+much you write. A POST policy signs the _conditions_, so MinIO enforces them
 itself, before the app is involved:
 
-| Condition      | Value                                | Why                                            |
-| -------------- | ------------------------------------ | ---------------------------------------------- |
-| key            | exactly one key, not a prefix        | the browser cannot choose where bytes land     |
-| content-type   | `image/png`, `image/jpeg`, `image/tiff` | an allowlist, not a blocklist               |
-| content-length | 1 byte to 25 MB                      | a stolen URL cannot be used to fill the disk   |
-| expiry         | 5 minutes                            | see section 10                                 |
+| Condition      | Value                                   | Why                                          |
+| -------------- | --------------------------------------- | -------------------------------------------- |
+| key            | exactly one key, not a prefix           | the browser cannot choose where bytes land   |
+| content-type   | `image/png`, `image/jpeg`, `image/tiff` | an allowlist, not a blocklist                |
+| content-length | 1 byte to 25 MB                         | a stolen URL cannot be used to fill the disk |
+| expiry         | 5 minutes                               | see section 10                               |
 
 Whoever holds that URL can upload **one object, at one key, of one type, under
 the size limit, for five minutes**. Then it is worthless.
@@ -290,8 +290,8 @@ in it. Handing those to a browser means:
 - revoking them means rotating the credential for every user at once;
 - they never expire on their own.
 
-A presigned URL is a signature over a specific, narrow statement: *this
-operation, on this object, with these conditions, until this moment.* It grants
+A presigned URL is a signature over a specific, narrow statement: _this
+operation, on this object, with these conditions, until this moment._ It grants
 one action instead of an account. It cannot list. It expires by itself with
 nothing to revoke. And because the signature is generated with credentials the
 browser never sees, a leaked URL discloses one object for a few minutes rather
@@ -309,7 +309,7 @@ signature says the request is legitimate and the signature is all it has. The
 tenant model lives entirely in the database, and the only place it is applied
 is the application.
 
-So the URL is the *mechanism* and `canAccess` is the *policy*. Confusing the
+So the URL is the _mechanism_ and `canAccess` is the _policy_. Confusing the
 two would mean any caller who could reach the download route could get a
 perfectly valid URL for anyone's object — correctly signed, cryptographically
 sound, and completely wrong.
@@ -321,9 +321,9 @@ would key on. Nothing in this app trusts it to keep anyone out.
 
 ## 10. Chosen URL expiry, and why
 
-| URL      | Expiry     | Reasoning                                                                                                                                                    |
-| -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Upload   | 5 minutes  | It has to cover the whole transfer. 25 MB on a slow hospital connection is a couple of minutes, so five leaves room without leaving a writable URL lying about. |
+| URL      | Expiry     | Reasoning                                                                                                                                                        |
+| -------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Upload   | 5 minutes  | It has to cover the whole transfer. 25 MB on a slow hospital connection is a couple of minutes, so five leaves room without leaving a writable URL lying about.  |
 | Download | 60 seconds | The browser follows it immediately, so it only has to survive one round trip. A URL that leaks into a log, a screenshot, or a chat message is stale in a minute. |
 
 The two differ because the risk is different in each direction. An upload URL
@@ -391,7 +391,7 @@ Roughly in the order I would do them:
    records that have been pending longer than the upload URL could possibly
    live, and a bucket lifecycle rule should drop orphaned objects.
 3. **Verify file content, not just the declared type.** The policy enforces the
-   content type the browser *claimed*. Reading magic bytes server-side at
+   content type the browser _claimed_. Reading magic bytes server-side at
    confirm time would catch a file that is not the image it says it is.
 4. **An audit log.** In a hospital setting, who downloaded what and when is
    likely a compliance requirement, not a nice-to-have. Every signature issued
@@ -472,21 +472,21 @@ the part that is mine.
 
 Everything below was added deliberately. None of it was in the employer's spec.
 
-| #   | Addition                                                                                  | Why                                                                                                       |
-| --- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 1   | **404, never 403**, on every route keyed by an id, with identical bodies                    | A 403 confirms the resource exists, which lets Hospital B enumerate Hospital A's uploads.                   |
-| 2   | **Constrained upload URLs** — size and content-type signed into a POST policy               | An unconstrained presigned PUT lets whoever holds it upload anything, of any size.                          |
-| 3   | **A defined `safe-filename`** — normalise, strip separators, allowlist characters, cap length | The spec writes `{safe-filename}` without saying what makes one safe.                                       |
-| 4   | **Confirm derives the key from the record**, never from the request                         | Accepting a key from the browser would let a caller confirm against somebody else's object.                 |
-| 5   | **Real byte progress**, and indeterminate states where nothing is measurable                | A progress bar that is not measuring anything is a lie told to the user.                                    |
-| 6   | **Human-readable status text**; enum values unchanged in the database and API                | `queued` is not a sentence. What the user needs is what is happening and what they can do next.             |
-| 7   | **Empty state and initial loading state**                                                   | A blank list is ambiguous — it could be empty, loading, or broken.                                          |
-| 8   | **Named the `pending` state the spec omits**, and flagged it                                 | The record must exist before the bytes do. See "Questions I would raise".                                   |
-| 9   | **Confirm is idempotent**, enforced by a conditional update and covered by a test            | It is a network call. Browsers retry, proxies repeat, users double-click.                                   |
-| 10  | **Authorization isolated as one pure function**                                              | So there is exactly one place to point at, test, and change.                                                |
-| 11  | **Four extra tests** — missing object, double confirm, path traversal, expired URL           | Each covers a place where the happy path is not the whole story.                                            |
-| 12  | **One-command startup**, both users seeded, bucket created on boot                           | A reviewer has fifteen minutes and should not spend them clicking through a MinIO console.                  |
-| 13  | **`FAIL-TEST` sample id triggers a simulated failure**                                       | Otherwise the `failed` status and its UI are unreachable in a demo, since nothing in a simulation goes wrong. |
+| #   | Addition                                                                                      | Why                                                                                                           |
+| --- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1   | **404, never 403**, on every route keyed by an id, with identical bodies                      | A 403 confirms the resource exists, which lets Hospital B enumerate Hospital A's uploads.                     |
+| 2   | **Constrained upload URLs** — size and content-type signed into a POST policy                 | An unconstrained presigned PUT lets whoever holds it upload anything, of any size.                            |
+| 3   | **A defined `safe-filename`** — normalise, strip separators, allowlist characters, cap length | The spec writes `{safe-filename}` without saying what makes one safe.                                         |
+| 4   | **Confirm derives the key from the record**, never from the request                           | Accepting a key from the browser would let a caller confirm against somebody else's object.                   |
+| 5   | **Real byte progress**, and indeterminate states where nothing is measurable                  | A progress bar that is not measuring anything is a lie told to the user.                                      |
+| 6   | **Human-readable status text**; enum values unchanged in the database and API                 | `queued` is not a sentence. What the user needs is what is happening and what they can do next.               |
+| 7   | **Empty state and initial loading state**                                                     | A blank list is ambiguous — it could be empty, loading, or broken.                                            |
+| 8   | **Named the `pending` state the spec omits**, and flagged it                                  | The record must exist before the bytes do. See "Questions I would raise".                                     |
+| 9   | **Confirm is idempotent**, enforced by a conditional update and covered by a test             | It is a network call. Browsers retry, proxies repeat, users double-click.                                     |
+| 10  | **Authorization isolated as one pure function**                                               | So there is exactly one place to point at, test, and change.                                                  |
+| 11  | **Four extra tests** — missing object, double confirm, path traversal, expired URL            | Each covers a place where the happy path is not the whole story.                                              |
+| 12  | **One-command startup**, both users seeded, bucket created on boot                            | A reviewer has fifteen minutes and should not spend them clicking through a MinIO console.                    |
+| 13  | **`FAIL-TEST` sample id triggers a simulated failure**                                        | Otherwise the `failed` status and its UI are unreachable in a demo, since nothing in a simulation goes wrong. |
 
 ## Questions I would raise
 
@@ -496,7 +496,7 @@ am flagging it rather than deviating quietly.
 **1. The status list has no name for "record created, bytes not uploaded yet".**
 
 The brief lists `uploaded`, `queued`, `processing`, `completed`, `failed`. But
-the object key contains the upload id, so the row must exist *before* the
+the object key contains the upload id, so the row must exist _before_ the
 browser can be told where to send the bytes. That leaves a real state the list
 does not name.
 
@@ -523,7 +523,7 @@ this is a hospital data-sharing scenario and the rest of the brief is about
 access control. It is currently stored and displayed but does not affect
 authorization.
 
-**Question for the team:** is classification meant to *do* anything? If
+**Question for the team:** is classification meant to _do_ anything? If
 `restricted` should mean shorter URL expiry, a narrower audience inside the
 owning hospital, or mandatory audit logging, that changes the model — it would
 stop being a label and become a second input to `canAccess`.
@@ -534,15 +534,15 @@ stop being a label and become a second input to `canAccess`.
 
 For a walkthrough, in the order it makes sense to read:
 
-| Path                                          | What it is                                                       |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| `src/lib/server/authz.ts`                     | **the access rule.** Start here                                   |
-| `src/lib/server/db/schema.ts`                 | the data model, and the note on the added `pending` status        |
-| `src/lib/server/load-upload.ts`               | look up, authorize, or 404 — shared by every id-keyed route       |
-| `src/routes/api/uploads/+server.ts`           | create the record and sign the upload URL; list                   |
-| `src/routes/api/uploads/[id]/confirm/+server.ts` | verify the bytes arrived; idempotent                           |
-| `src/routes/api/uploads/[id]/download/+server.ts` | authorize, then sign                                          |
-| `src/lib/server/storage.ts`                   | the only file that holds MinIO credentials                        |
-| `src/lib/server/object-key.ts`                | filename sanitising and key construction                          |
-| `src/lib/upload-client.ts`                    | the browser half: create, send bytes, confirm                     |
-| `src/lib/server/processing.ts`                | simulated pipeline, with its limitations written down             |
+| Path                                              | What it is                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------- |
+| `src/lib/server/authz.ts`                         | **the access rule.** Start here                             |
+| `src/lib/server/db/schema.ts`                     | the data model, and the note on the added `pending` status  |
+| `src/lib/server/load-upload.ts`                   | look up, authorize, or 404 — shared by every id-keyed route |
+| `src/routes/api/uploads/+server.ts`               | create the record and sign the upload URL; list             |
+| `src/routes/api/uploads/[id]/confirm/+server.ts`  | verify the bytes arrived; idempotent                        |
+| `src/routes/api/uploads/[id]/download/+server.ts` | authorize, then sign                                        |
+| `src/lib/server/storage.ts`                       | the only file that holds MinIO credentials                  |
+| `src/lib/server/object-key.ts`                    | filename sanitising and key construction                    |
+| `src/lib/upload-client.ts`                        | the browser half: create, send bytes, confirm               |
+| `src/lib/server/processing.ts`                    | simulated pipeline, with its limitations written down       |
