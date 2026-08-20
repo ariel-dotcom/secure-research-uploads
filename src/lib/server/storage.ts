@@ -59,17 +59,16 @@ export async function createPresignedUpload(objectKey: string, contentType: stri
  * Callers must have checked authorization already: this has no idea who is
  * asking and will sign anything handed to it. That separation is the point.
  *
- * Callers must have already checked authorization: this function has no idea
- * who is asking, and will happily sign anything it is given. That separation
- * is deliberate - see `canAccess` in authz.ts for the one place that decides.
+ * ttlSeconds is only for the expiry test; every route takes the default.
  */
 export async function createPresignedDownload(
 	objectKey: string,
-	downloadFilename: string
+	downloadFilename: string,
+	ttlSeconds: number = DOWNLOAD_URL_TTL_SECONDS
 ): Promise<string> {
 	await ensureBucket();
 
-	return client.presignedGetObject(bucket, objectKey, DOWNLOAD_URL_TTL_SECONDS, {
+	return client.presignedGetObject(bucket, objectKey, ttlSeconds, {
 		// Makes the browser save the file under the name the user uploaded
 		// instead of the sanitised key component.
 		'response-content-disposition': `attachment; filename="${encodeURIComponent(downloadFilename)}"`

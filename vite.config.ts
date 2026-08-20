@@ -33,7 +33,17 @@ export default defineConfig({
 					name: 'server',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+					// Points config.ts at the test database and bucket before any
+					// module reads them. See src/test-setup.ts.
+					setupFiles: ['./src/test-setup.ts'],
+					// The integration tests share one Postgres database and one
+					// MinIO bucket, and truncate between cases, so they cannot run
+					// in parallel with each other.
+					fileParallelism: false,
+					// Simulated processing is a chain of timers, so a few cases
+					// wait on real elapsed time.
+					testTimeout: 20000
 				}
 			}
 		]
