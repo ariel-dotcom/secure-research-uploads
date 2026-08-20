@@ -103,11 +103,12 @@ describe('7. A filename containing path traversal cannot escape the key prefix',
 
 		const [row] = await db.select().from(uploads).where(eq(uploads.id, created.upload.id));
 
-		expect(row.objectKey).toBe(
-			`uploads/${dana.companyId}/${created.upload.id}/00000000-0000-4000-8000-00000000000b_stolen.png`
-		);
+		// Only the last path segment survives, so the traversal and the other
+		// company's id are dropped outright rather than flattened into the name.
+		expect(row.objectKey).toBe(`uploads/${dana.companyId}/${created.upload.id}/stolen.png`);
 		expect(row.objectKey.startsWith(`uploads/${dana.companyId}/${created.upload.id}/`)).toBe(true);
 		expect(row.objectKey).not.toContain('..');
+		expect(row.objectKey).not.toContain('00000000-0000-4000-8000-00000000000b');
 
 		// The original filename is still kept for display - only the key
 		// component was sanitised.
