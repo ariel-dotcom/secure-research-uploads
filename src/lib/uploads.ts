@@ -49,3 +49,17 @@ export function formatBytes(bytes: number): string {
 	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/** What the browser sees. The object key and owning company never leave the
+ *  server - see toUploadView() in server/responses.ts. */
+export interface UploadView {
+	id: string;
+	sampleId: string;
+	filename: string;
+	classification: string;
+	status: UploadStatus;
+	sizeBytes: number | null;
+	contentType: string | null;
+	failureReason: string | null;
+	createdAt: string;
+}
