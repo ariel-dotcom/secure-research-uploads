@@ -47,15 +47,32 @@
 	// A timeout scheduled after each refresh rather than an interval, so two
 	// requests cannot overlap and polling stops once everything has settled.
 	const POLL_MS = 1500;
-	const hasWorkInFlight = $derived(
-		records.some((record) => !TERMINAL_STATUSES.includes(record.status))
-	);
 
 	$effect(() => {
-		if (!hasWorkInFlight) return;
+		// Reads `records` directly, and deliberately not a $derived boolean.
+		//
+		// This effect has to re-run after every refresh in order to schedule the
+		// next one. A $derived memoises on equality, so a "is anything still in
+		// flight?" boolean would stay true through pending -> uploaded -> queued
+		// -> processing and never notify this effect again: exactly one poll
+		// would ever be scheduled, and the row would sit at its first status
+		// until the page was reloaded by hand. Assigning a fresh array to
+		// `records` always notifies, so the chain keeps going.
+		const stillWorking = records.some((record) => !TERMINAL_STATUSES.includes(record.status));
+		if (!stillWorking) return;
+
 		const timer = setTimeout(refresh, POLL_MS);
 		return () => clearTimeout(timer);
 	});
+
+	const inFlightCount = $derived(
+		records.filter((record) => !TERMINAL_STATUSES.includes(record.status)).length
+	);
+
+	// Both panels stay mounted in state - only the rendering switches - so
+	// polling and the tab count keep working while the form is showing.
+
+	let activeTab = $state<'upload' | 'records'>('upload');
 
 	// --- the form -------------------------------------------------------
 
@@ -98,6 +115,9 @@
 			phase = 'idle';
 
 			await refresh();
+
+			// The next few seconds are worth watching, on the other panel.
+			activeTab = 'records';
 		} catch (cause) {
 			phase = 'error';
 			if (cause instanceof UploadError) {
@@ -141,8 +161,47 @@
 	</p>
 {/if}
 
-<section class="rounded-lg border border-slate-200 bg-white p-6">
-	<h2 class="text-base font-semibold">Upload an image</h2>
+<div class="mb-6 flex gap-1 border-b border-slate-200" role="tablist">
+	<button
+		type="button"
+		role="tab"
+		aria-selected={activeTab === 'upload'}
+		onclick={() => (activeTab = 'upload')}
+		class="-mb-px border-b-2 px-4 py-2 text-sm font-medium transition
+			{activeTab === 'upload'
+			? 'border-slate-900 text-slate-900'
+			: 'border-transparent text-slate-500 hover:text-slate-800'}"
+	>
+		Upload an image
+	</button>
+	<button
+		type="button"
+		role="tab"
+		aria-selected={activeTab === 'records'}
+		onclick={() => (activeTab = 'records')}
+		class="-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium transition
+			{activeTab === 'records'
+			? 'border-slate-900 text-slate-900'
+			: 'border-transparent text-slate-500 hover:text-slate-800'}"
+	>
+		Your uploads
+		{#if listState === 'ready'}
+			<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">
+				{records.length}
+			</span>
+		{/if}
+		<!-- Something is still moving on the panel they cannot see. -->
+		{#if inFlightCount > 0}
+			<span
+				class="h-2 w-2 animate-pulse rounded-full bg-amber-500"
+				title="{inFlightCount} still processing"
+			></span>
+		{/if}
+	</button>
+</div>
+
+<section class="rounded-lg border border-slate-200 bg-white p-6" hidden={activeTab !== 'upload'}>
+	<h2 class="sr-only">Upload an image</h2>
 	<p class="mt-1 text-sm text-slate-500">
 		Up to {formatBytes(MAX_UPLOAD_BYTES)}. PNG, JPEG or TIFF.
 	</p>
@@ -241,25 +300,27 @@
 	</form>
 </section>
 
-<section class="mt-8">
-	<h2 class="text-base font-semibold">Your uploads</h2>
+<section hidden={activeTab !== 'records'}>
+	<h2 class="sr-only">Your uploads</h2>
 
 	{#if listState === 'loading'}
-		<p class="mt-4 text-sm text-slate-500">Loading your uploads...</p>
+		<p class="text-sm text-slate-500">Loading your uploads...</p>
 	{:else if listState === 'error'}
-		<p class="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+		<p class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
 			{listError}
 		</p>
 	{:else if records.length === 0}
-		<div class="mt-4 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center">
+		<div class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center">
 			<p class="text-sm font-medium text-slate-700">No uploads yet</p>
 			<p class="mt-1 text-sm text-slate-500">
-				Use the form above to add the first image for a sample. Only your hospital will be able to
+				Use the upload tab to add the first image for a sample. Only your hospital will be able to
 				see it.
 			</p>
 		</div>
 	{:else}
-		<ul class="mt-4 grid gap-3">
+		<!-- Scrolls inside a fixed height rather than growing the page. Not
+		     pagination, which the brief rules out. -->
+		<ul class="grid max-h-[32rem] gap-3 overflow-y-auto pr-1">
 			{#each records as record (record.id)}
 				<li class="rounded-lg border border-slate-200 bg-white p-4">
 					<div class="flex flex-wrap items-start gap-3">
