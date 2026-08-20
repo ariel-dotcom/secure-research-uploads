@@ -69,10 +69,19 @@ export async function createPresignedDownload(
 	await ensureBucket();
 
 	return client.presignedGetObject(bucket, objectKey, ttlSeconds, {
-		// Makes the browser save the file under the name the user uploaded
-		// instead of the sanitised key component.
-		'response-content-disposition': `attachment; filename="${encodeURIComponent(downloadFilename)}"`
+		'response-content-disposition': contentDisposition(downloadFilename)
 	});
+}
+
+/**
+ * Restores the user's original filename. Two forms because these are not all
+ * ASCII - `filename*=UTF-8''` (RFC 5987) carries the real name, the plain one
+ * is a fallback. Encoding both also strips quotes that could break the header.
+ */
+function contentDisposition(filename: string): string {
+	const asciiFallback = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+
+	return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 /** Size and content type of a stored object, or null if it is not there. */
