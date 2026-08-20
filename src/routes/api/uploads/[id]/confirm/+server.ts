@@ -2,11 +2,10 @@ import { json, error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { uploads } from '$lib/server/db/schema';
-import { canAccess } from '$lib/server/authz';
-import { isUuid } from '$lib/server/dev-user';
+import { requireAccessibleUpload } from '$lib/server/load-upload';
 import { statObject } from '$lib/server/storage';
 import { startSimulatedProcessing } from '$lib/server/processing';
-import { notFound, requireActor, toUploadView } from '$lib/server/responses';
+import { requireActor, toUploadView } from '$lib/server/responses';
 import type { RequestHandler } from './$types';
 
 /**
@@ -22,16 +21,8 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const actor = requireActor(locals.actor);
 
-	// A malformed id is answered the same way as an id that does not exist,
-	// because Postgres would otherwise throw on the uuid comparison and turn a
-	// bad request into a 500.
-	if (!isUuid(params.id)) notFound();
-
-	const [row] = await db.select().from(uploads).where(eq(uploads.id, params.id)).limit(1);
-
-	// One check covers both "no such upload" and "not yours", and both produce
-	// the same 404. See notFound() for why it is not a 403.
-	if (!canAccess(actor, row ?? null)) notFound();
+	// Same lookup-and-refuse path as every other id-keyed route.
+	const row = await requireAccessibleUpload(actor, params.id);
 
 	// Already confirmed: no second record, and never dragged backwards.
 	if (row.status !== 'pending') {
