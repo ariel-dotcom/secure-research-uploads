@@ -1,0 +1,3 @@
+# Keep line endings consistent in the repository regardless of contributor OS.
+# Developed on Windows; without this the repo fills up with CRLF/LF churn.
+* text=auto eol=lf
