@@ -1,12 +1,15 @@
-// See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
+import type { Actor } from '$lib/server/authz';
+
 declare global {
 	namespace App {
-		// interface Error {}
-		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
+		interface Locals {
+			/**
+			 * Who is making this request, resolved from the database in
+			 * hooks.server.ts. Null when the dev user cookie names nobody.
+			 * Routes read this and never read the cookie themselves.
+			 */
+			actor: (Actor & { name: string }) | null;
+		}
 	}
 }
 

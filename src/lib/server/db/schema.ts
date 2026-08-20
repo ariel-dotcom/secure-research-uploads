@@ -1,4 +1,5 @@
 import { pgTable, pgEnum, text, uuid, integer, timestamp, index } from 'drizzle-orm/pg-core';
+import { UPLOAD_STATUSES } from '../../uploads';
 
 /**
  * The brief lists five statuses; `pending` is a deliberate sixth.
@@ -12,14 +13,7 @@ import { pgTable, pgEnum, text, uuid, integer, timestamp, index } from 'drizzle-
  * written afterwards, which the security requirements rule out. Raised in the
  * README under "Questions I would raise".
  */
-export const uploadStatus = pgEnum('upload_status', [
-	'pending',
-	'uploaded',
-	'queued',
-	'processing',
-	'completed',
-	'failed'
-]);
+export const uploadStatus = pgEnum('upload_status', UPLOAD_STATUSES);
 
 /** Hospital A and Hospital B. The tenant boundary the whole app is about. */
 export const companies = pgTable('companies', {
@@ -82,4 +76,4 @@ export const uploads = pgTable(
 export type Company = typeof companies.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Upload = typeof uploads.$inferSelect;
-export type UploadStatus = (typeof uploadStatus.enumValues)[number];
+export type { UploadStatus } from '../../uploads';

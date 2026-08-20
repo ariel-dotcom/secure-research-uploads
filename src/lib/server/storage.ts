@@ -1,11 +1,7 @@
 // The only file that holds MinIO credentials.
 import * as Minio from 'minio';
-import {
-	config,
-	MAX_UPLOAD_BYTES,
-	UPLOAD_URL_TTL_SECONDS,
-	DOWNLOAD_URL_TTL_SECONDS
-} from './config';
+import { config, UPLOAD_URL_TTL_SECONDS, DOWNLOAD_URL_TTL_SECONDS } from './config';
+import { MAX_UPLOAD_BYTES } from '../uploads';
 
 const client = new Minio.Client({
 	endPoint: config.minio.endPoint,

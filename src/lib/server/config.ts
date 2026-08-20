@@ -26,18 +26,6 @@ export const config = {
 	}
 };
 
-// --- Upload limits -----------------------------------------------------
-// These are baked into the presigned upload policy, so MinIO rejects an
-// upload that breaks them before a single byte reaches the database.
-
-/** 25 MB. Large enough for a research scan, small enough that a mistaken or
- *  malicious upload cannot fill the disk. */
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-
-/** Formats a research imaging workflow actually produces. An allowlist rather
- *  than a blocklist: anything not named here is rejected by default. */
-export const ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/tiff'] as const;
-
 /** 5 minutes: has to cover a 25 MB upload on a slow link. */
 export const UPLOAD_URL_TTL_SECONDS = 5 * 60;
 
