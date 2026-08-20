@@ -1,10 +1,11 @@
-// One place that reads the environment, so that the app, the test suite and
-// the seed script all agree on where Postgres and MinIO are.
+// The one place that reads the environment, so the app, the tests and the seed
+// script agree on where Postgres and MinIO are.
 //
-// This reads `process.env` rather than SvelteKit's `$env/dynamic/private`
-// because the seed script and the tests run outside SvelteKit and cannot
-// import `$env`. SvelteKit loads .env into process.env for the dev server;
-// the tests and the seed script load it with dotenv themselves.
+// dotenv here rather than $env/dynamic/private, because the tests and the seed
+// script run outside SvelteKit - and Vite does not put .env into process.env,
+// which broke `vite build`. dotenv never overwrites an already-set variable,
+// so a real deployment still wins.
+import 'dotenv/config';
 
 function required(name: string): string {
 	const value = process.env[name];

@@ -1,5 +1,5 @@
 // Run with: npm run db:seed
-import 'dotenv/config';
+// The environment is loaded by src/lib/server/config.ts, which db imports.
 import { db } from '../src/lib/server/db/index';
 import { seedDevData, SEED } from '../src/lib/server/db/seed';
 
