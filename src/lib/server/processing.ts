@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from './db';
 import { uploads } from './db/schema';
 import type { UploadStatus } from '../uploads';
@@ -53,7 +53,14 @@ async function advance(uploadId: string, from: UploadStatus, to: UploadStatus): 
 	const updated = await db
 		.update(uploads)
 		.set({ status: to, updatedAt: new Date() })
-		.where(and(eq(uploads.id, uploadId), eq(uploads.status, from)))
+		.where(
+			and(
+				eq(uploads.id, uploadId),
+				eq(uploads.status, from),
+				// A record deleted mid-pipeline stops moving.
+				isNull(uploads.deletedAt)
+			)
+		)
 		.returning({ id: uploads.id });
 
 	return updated.length > 0;
@@ -63,7 +70,7 @@ async function markFailed(uploadId: string, reason: string): Promise<void> {
 	await db
 		.update(uploads)
 		.set({ status: 'failed', failureReason: reason, updatedAt: new Date() })
-		.where(eq(uploads.id, uploadId));
+		.where(and(eq(uploads.id, uploadId), isNull(uploads.deletedAt)));
 }
 
 function sleep(ms: number): Promise<void> {

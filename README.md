@@ -107,6 +107,7 @@ the mock agrees with my assumptions, which is the one thing not in doubt.
 | `src/lib/server/validation.test.ts`         | metadata rules                                                      |
 | `src/lib/server/access-control.test.ts`     | the four tests the brief requires, numbered to match                |
 | `src/lib/server/upload-reliability.test.ts` | four extra tests: missing object, double confirm, traversal, expiry |
+| `src/lib/server/view-and-delete.test.ts`    | the view and delete features, which are not in the brief            |
 
 ## 4. Data model
 
@@ -133,6 +134,7 @@ fake one.
 | `status`                     | `pending`, `uploaded`, `queued`, `processing`, `completed`, `failed`                 |
 | `size_bytes`, `content_type` | filled at confirm time from MinIO's view of the object, not from the browser's claim |
 | `failure_reason`             | shown to the user when processing fails                                              |
+| `deleted_at`                 | soft delete. Null means live; a timestamp means withdrawn from the app but retained  |
 | `created_at`, `updated_at`   | timestamps                                                                           |
 
 Indexed on `(company_id, created_at)`, which is the only read pattern the app
@@ -487,6 +489,39 @@ Everything below was added deliberately. None of it was in the employer's spec.
 | 11  | **Four extra tests** — missing object, double confirm, path traversal, expired URL            | Each covers a place where the happy path is not the whole story.                                              |
 | 12  | **One-command startup**, both users seeded, bucket created on boot                            | A reviewer has fifteen minutes and should not spend them clicking through a MinIO console.                    |
 | 13  | **`FAIL-TEST` sample id triggers a simulated failure**                                        | Otherwise the `failed` status and its UI are unreachable in a demo, since nothing in a simulation goes wrong. |
+| 14  | **Two tabs instead of one long page**                                                         | Presentation only, on a single route. Not pagination, which the brief rules out.                              |
+| 15  | **View** - opens the image in a modal from a short-lived inline URL                           | Same authorization and the same direct browser-to-MinIO path as download; only the disposition differs.       |
+| 16  | **Delete** - soft delete, behind a confirmation dialog                                        | The first destructive route, so the shared authorization check now protects data rather than only privacy.    |
+
+## Viewing and deleting
+
+Neither is in the brief. Both go through the same `requireAccessibleUpload()`
+as everything else, so neither needed a new access rule - which was the point
+of putting the rule in one place.
+
+**View** signs a short-lived URL exactly like download, with one difference:
+`inline` rather than `attachment`, so the browser renders the image instead of
+saving it. The bytes still go straight from MinIO to the browser. Proxying them
+through the app would have been the alternative, and would have put every scan
+through the server on every view - the thing the whole design avoids.
+
+**Delete is a soft delete.** `deleted_at` is stamped; the row and the object
+are both kept. In a hospital, retention and audit obligations usually outlive
+one user's decision to delete, so "delete" here means withdrawn from the
+application rather than destroyed. Nothing in the app can restore it - there is
+no undelete route and no UI for one - so the warning the user confirms is
+accurate.
+
+The risk soft delete introduces is a query that forgets it and serves a deleted
+row. That is contained by there being exactly two places that read uploads:
+`requireAccessibleUpload()` for single records, and the list query. A deleted
+record answers 404 on every id-keyed route, including for the company that owns
+it - there is no back door for the owner.
+
+Delete is also the first destructive route in the app. That raises the stakes
+on the shared authorization check rather than lowering them: a wrong answer now
+loses somebody's data rather than merely showing it to the wrong person. It
+gets the same check as every other route, because there is only one.
 
 ## Questions I would raise
 

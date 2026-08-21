@@ -179,6 +179,33 @@ export async function downloadUpload(uploadId: string): Promise<void> {
 	window.location.assign((body as { url: string }).url);
 }
 
+/**
+ * A URL for an <img> tag. The bytes still go straight from MinIO to the
+ * browser; proxying them through a route would put every scan through the app
+ * server on every view. Short-lived, so it is fetched each time.
+ */
+export async function getViewUrl(uploadId: string): Promise<string> {
+	const response = await fetch(`/api/uploads/${uploadId}/view`);
+	const body = await response.json().catch(() => null);
+
+	if (!response.ok) {
+		throw new UploadError({ message: body?.message ?? 'Could not open this image.' });
+	}
+
+	return (body as { url: string }).url;
+}
+
+/** Nothing is removed in the browser: the row disappears because the next
+ *  list no longer contains it, not because the page hid it. */
+export async function deleteUpload(uploadId: string): Promise<void> {
+	const response = await fetch(`/api/uploads/${uploadId}`, { method: 'DELETE' });
+
+	if (!response.ok) {
+		const body = await response.json().catch(() => null);
+		throw new UploadError({ message: body?.message ?? 'Could not delete this upload.' });
+	}
+}
+
 export async function listUploads(): Promise<UploadView[]> {
 	const response = await fetch('/api/uploads');
 	const body = await response.json().catch(() => null);

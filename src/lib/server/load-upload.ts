@@ -35,5 +35,9 @@ export async function requireAccessibleUpload(actor: Actor, uploadId: string): P
 
 	if (!canAccess(actor, row ?? null)) notFound();
 
+	// Checked here rather than inside canAccess: that asks whether this person
+	// may touch the record, this asks whether it still exists at all.
+	if (row.deletedAt !== null) notFound();
+
 	return row;
 }

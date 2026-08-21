@@ -11,6 +11,8 @@
 	import {
 		uploadFile,
 		downloadUpload,
+		getViewUrl,
+		deleteUpload,
 		listUploads,
 		UploadError,
 		type UploadPhase
@@ -150,6 +152,72 @@
 				cause instanceof UploadError ? cause.message : 'Could not download this file.';
 		} finally {
 			downloading = null;
+		}
+	}
+
+	// The URL is fetched on open and dropped on close, since it lives a minute.
+
+	let viewing = $state<UploadView | null>(null);
+	let viewUrl = $state<string | null>(null);
+	let viewError = $state<string | null>(null);
+	let viewerEl = $state<HTMLDialogElement | null>(null);
+
+	async function openViewer(record: UploadView) {
+		viewing = record;
+		viewUrl = null;
+		viewError = null;
+		viewerEl?.showModal();
+
+		try {
+			viewUrl = await getViewUrl(record.id);
+		} catch (cause) {
+			viewError = cause instanceof UploadError ? cause.message : 'Could not open this image.';
+		}
+	}
+
+	function closeViewer() {
+		viewerEl?.close();
+		viewing = null;
+		viewUrl = null;
+		viewError = null;
+	}
+
+	// --- deleting -------------------------------------------------------
+
+	let pendingDelete = $state<UploadView | null>(null);
+	let deleteError = $state<string | null>(null);
+	let deleteBusy = $state(false);
+	let confirmEl = $state<HTMLDialogElement | null>(null);
+
+	function askToDelete(record: UploadView) {
+		pendingDelete = record;
+		deleteError = null;
+		confirmEl?.showModal();
+	}
+
+	function cancelDelete() {
+		confirmEl?.close();
+		pendingDelete = null;
+		deleteError = null;
+	}
+
+	async function confirmDelete() {
+		if (!pendingDelete) return;
+
+		deleteBusy = true;
+		deleteError = null;
+
+		try {
+			await deleteUpload(pendingDelete.id);
+			confirmEl?.close();
+			pendingDelete = null;
+			// Re-fetch rather than removing the row here: the list shows what the
+			// server says exists, not what we assume.
+			await refresh();
+		} catch (cause) {
+			deleteError = cause instanceof UploadError ? cause.message : 'Could not delete this upload.';
+		} finally {
+			deleteBusy = false;
 		}
 	}
 </script>
@@ -332,16 +400,38 @@
 							</p>
 						</div>
 
-						<button
-							type="button"
-							onclick={() => download(record.id)}
-							disabled={record.status === 'pending' || downloading === record.id}
-							class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium
-								hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400
-								disabled:hover:bg-white"
-						>
-							{downloading === record.id ? 'Preparing...' : 'Download'}
-						</button>
+						<div class="flex flex-wrap gap-2">
+							<button
+								type="button"
+								onclick={() => openViewer(record)}
+								disabled={record.status === 'pending'}
+								class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium
+									hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400
+									disabled:hover:bg-white"
+							>
+								View
+							</button>
+
+							<button
+								type="button"
+								onclick={() => download(record.id)}
+								disabled={record.status === 'pending' || downloading === record.id}
+								class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium
+									hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400
+									disabled:hover:bg-white"
+							>
+								{downloading === record.id ? 'Preparing...' : 'Download'}
+							</button>
+
+							<button
+								type="button"
+								onclick={() => askToDelete(record)}
+								class="rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700
+									hover:bg-red-50"
+							>
+								Delete
+							</button>
+						</div>
 					</div>
 
 					<p class="mt-2 text-sm text-slate-600">{STATUS_TEXT[record.status]}</p>
@@ -358,3 +448,94 @@
 		</ul>
 	{/if}
 </section>
+
+<!--
+	The browser's own <dialog> rather than a hand-built overlay: focus trapping,
+	Escape, and the backdrop come for free. m-auto is needed because Tailwind's
+	reset clears the margin: auto that centres a modal dialog.
+-->
+
+<dialog
+	bind:this={confirmEl}
+	onclose={cancelDelete}
+	class="max-w-md rounded-lg border border-slate-200 p-0 backdrop:bg-slate-900/40"
+>
+	{#if pendingDelete}
+		<div class="flex flex-col gap-4 p-6">
+			<h2 class="text-base font-semibold">Delete this upload?</h2>
+
+			<p class="text-sm text-slate-600">
+				Are you sure you want to delete <span class="font-medium text-slate-900"
+					>{pendingDelete.filename}</span
+				>? You will not be able to restore it.
+			</p>
+
+			{#if deleteError}
+				<p class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+					{deleteError}
+				</p>
+			{/if}
+
+			<div class="flex justify-end gap-2">
+				<button
+					type="button"
+					onclick={cancelDelete}
+					disabled={deleteBusy}
+					class="rounded border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={confirmDelete}
+					disabled={deleteBusy}
+					class="rounded bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800
+						disabled:bg-red-300"
+				>
+					{deleteBusy ? 'Deleting...' : 'Delete'}
+				</button>
+			</div>
+		</div>
+	{/if}
+</dialog>
+
+<dialog
+	bind:this={viewerEl}
+	onclose={closeViewer}
+	class="max-h-[90vh] max-w-[90vw] rounded-lg border border-slate-200 p-0 backdrop:bg-slate-900/70"
+>
+	{#if viewing}
+		<div class="flex flex-col gap-3 p-4">
+			<div class="flex items-start gap-4">
+				<div class="mr-auto">
+					<p class="font-medium">{viewing.filename}</p>
+					<p class="text-sm text-slate-500">
+						Sample {viewing.sampleId} &middot; {viewing.classification}
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={closeViewer}
+					class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100"
+				>
+					Close
+				</button>
+			</div>
+
+			{#if viewError}
+				<p class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+					{viewError}
+				</p>
+			{:else if viewUrl}
+				<!-- Straight from MinIO, on a link that dies in a minute. -->
+				<img
+					src={viewUrl}
+					alt={viewing.filename}
+					class="max-h-[70vh] max-w-full rounded object-contain"
+				/>
+			{:else}
+				<p class="p-8 text-center text-sm text-slate-500">Opening image...</p>
+			{/if}
+		</div>
+	{/if}
+</dialog>

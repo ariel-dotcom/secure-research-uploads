@@ -69,7 +69,21 @@ export async function createPresignedDownload(
 	await ensureBucket();
 
 	return client.presignedGetObject(bucket, objectKey, ttlSeconds, {
-		'response-content-disposition': contentDisposition(downloadFilename)
+		'response-content-disposition': contentDisposition('attachment', downloadFilename)
+	});
+}
+
+/** Same as a download, but `inline` so the browser renders the image instead
+ *  of saving it. */
+export async function createPresignedView(
+	objectKey: string,
+	filename: string,
+	ttlSeconds: number = DOWNLOAD_URL_TTL_SECONDS
+): Promise<string> {
+	await ensureBucket();
+
+	return client.presignedGetObject(bucket, objectKey, ttlSeconds, {
+		'response-content-disposition': contentDisposition('inline', filename)
 	});
 }
 
@@ -78,10 +92,10 @@ export async function createPresignedDownload(
  * ASCII - `filename*=UTF-8''` (RFC 5987) carries the real name, the plain one
  * is a fallback. Encoding both also strips quotes that could break the header.
  */
-function contentDisposition(filename: string): string {
+function contentDisposition(mode: 'attachment' | 'inline', filename: string): string {
 	const asciiFallback = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
 
-	return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+	return `${mode}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 /** Size and content type of a stored object, or null if it is not there. */

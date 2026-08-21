@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { uploads } from '$lib/server/db/schema';
 import { canAccess } from '$lib/server/authz';
@@ -17,10 +17,12 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ locals }) => {
 	const actor = requireActor(locals.actor);
 
+	// The only read that does not go through requireAccessibleUpload(), so the
+	// only place the soft-delete filter has to be repeated.
 	const rows = await db
 		.select()
 		.from(uploads)
-		.where(eq(uploads.companyId, actor.companyId))
+		.where(and(eq(uploads.companyId, actor.companyId), isNull(uploads.deletedAt)))
 		.orderBy(desc(uploads.createdAt));
 
 	return json({ uploads: rows.filter((row) => canAccess(actor, row)).map(toUploadView) });

@@ -65,7 +65,18 @@ export const uploads = pgTable(
 		failureReason: text('failure_reason'),
 
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+		/**
+		 * Soft delete. The row and the object are both kept: in a hospital,
+		 * retention obligations usually outlive one user's decision to delete.
+		 * Nothing in the app can restore it, so the warning the user confirms is
+		 * accurate.
+		 *
+		 * The risk is a query that forgets this column. Contained by there being
+		 * two reads of this table - requireAccessibleUpload() and the list query.
+		 */
+		deletedAt: timestamp('deleted_at', { withTimezone: true })
 	},
 	(table) => [
 		// Matches the only read pattern: one company, newest first.
