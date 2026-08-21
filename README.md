@@ -72,6 +72,27 @@ step. No bucket policy is applied: a new MinIO bucket is private by default,
 and that is exactly what this app needs. Applying a public-read policy would be
 the single change that breaks the whole security model.
 
+### Looking at the data
+
+Two places to look, matching the two things this app stores.
+
+**The database** - tables, rows, the `uploads` record for each file:
+
+```bash
+npm run db:studio
+```
+
+Then open <https://local.drizzle.studio>. Leave the command running while you
+use it; `Ctrl+C` stops it.
+
+**The files themselves** - the actual bytes, filed under
+`uploads/{company}/{upload}/`: the MinIO console at <http://localhost:9001>,
+with the credentials in the table above.
+
+Looking at both side by side is the quickest way to see the split this app is
+built on: the database holds the facts, MinIO holds the bytes, and `object_key`
+is the only thing joining them.
+
 ## 3. Running the tests
 
 ```bash
