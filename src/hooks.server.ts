@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { DEFAULT_USER_ID } from '$lib/server/db/seed';
 import { DEV_USER_COOKIE, isUuid } from '$lib/server/dev-user';
+import { traceActor } from '$lib/server/debug';
 
 /**
  * Resolves who is making each request, before any route runs.
@@ -16,6 +17,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const requestedUserId = event.cookies.get(DEV_USER_COOKIE) ?? DEFAULT_USER_ID;
 
 	event.locals.actor = isUuid(requestedUserId) ? await loadActor(requestedUserId) : null;
+
+	traceActor(event.request.method, event.url.pathname, event.locals.actor);
 
 	return resolve(event);
 };

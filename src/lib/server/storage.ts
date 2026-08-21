@@ -2,6 +2,7 @@
 import * as Minio from 'minio';
 import { config, UPLOAD_URL_TTL_SECONDS, DOWNLOAD_URL_TTL_SECONDS } from './config';
 import { MAX_UPLOAD_BYTES } from '../uploads';
+import { traceSignedUrl } from './debug';
 
 const client = new Minio.Client({
 	endPoint: config.minio.endPoint,
@@ -51,6 +52,8 @@ export async function createPresignedUpload(objectKey: string, contentType: stri
 	policy.setContentLengthRange(1, MAX_UPLOAD_BYTES);
 	policy.setExpires(new Date(Date.now() + UPLOAD_URL_TTL_SECONDS * 1000));
 
+	traceSignedUrl('upload', objectKey, UPLOAD_URL_TTL_SECONDS);
+
 	const { postURL, formData } = await client.presignedPostPolicy(policy);
 	return { postURL, formData };
 }
@@ -68,6 +71,8 @@ export async function createPresignedDownload(
 ): Promise<string> {
 	await ensureBucket();
 
+	traceSignedUrl('download', objectKey, ttlSeconds);
+
 	return client.presignedGetObject(bucket, objectKey, ttlSeconds, {
 		'response-content-disposition': contentDisposition('attachment', downloadFilename)
 	});
@@ -81,6 +86,8 @@ export async function createPresignedView(
 	ttlSeconds: number = DOWNLOAD_URL_TTL_SECONDS
 ): Promise<string> {
 	await ensureBucket();
+
+	traceSignedUrl('view', objectKey, ttlSeconds);
 
 	return client.presignedGetObject(bucket, objectKey, ttlSeconds, {
 		'response-content-disposition': contentDisposition('inline', filename)

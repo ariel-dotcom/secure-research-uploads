@@ -544,6 +544,34 @@ on the shared authorization check rather than lowering them: a wrong answer now
 loses somebody's data rather than merely showing it to the wrong person. It
 gets the same check as every other route, because there is only one.
 
+## Development tracing
+
+Set `DEBUG_AUTHZ=true` in `.env` and every authorization decision, signed URL
+and validation failure prints to the terminal running the app:
+
+```
+[authz] GET /api/uploads/0cc9f0c1.../download  actor=Dana (Hospital A)  company=000a
+[authz] upload=ea73  actor.company=000a  record.company=000a  canAccess=true   deleted=false  -> allow (owner)
+[sign]  download  key=uploads/...000a/0cc9f0c1.../<filename>  ttl=60s
+
+[authz] GET /api/uploads/0cc9f0c1...  actor=Ben (Hospital B)  company=000b
+[authz] upload=ea73  actor.company=000b  record.company=000a  canAccess=false  deleted=false  -> 404 (different company)
+```
+
+Two decisions in that output are deliberate.
+
+**It goes to the terminal, never into a response.** A debug flag that made a
+refusal explain itself - "this record belongs to Hospital A" - would be exactly
+the leak the 404 rule exists to prevent, sitting one environment variable away
+from production. With the flag on or off, the bytes the browser receives are
+identical; only the operator's terminal changes.
+
+**Filenames and sample ids are never logged.** An object key ends in the user's
+filename, and in a hospital a filename can identify a patient. Logs get
+shipped, searched and retained far longer than anyone intends, so the trace
+keeps only the structural part of the key - which company, which upload - which
+is all the decision turned on anyway.
+
 ## Questions I would raise
 
 Two places where the brief is genuinely ambiguous. I made a choice in both and

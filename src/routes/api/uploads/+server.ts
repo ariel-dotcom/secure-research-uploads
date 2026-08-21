@@ -7,6 +7,7 @@ import { buildObjectKey } from '$lib/server/object-key';
 import { createPresignedUpload } from '$lib/server/storage';
 import { validateUploadInput } from '$lib/server/validation';
 import { requireActor, toUploadView } from '$lib/server/responses';
+import { traceValidation } from '$lib/server/debug';
 import type { RequestHandler } from './$types';
 
 /**
@@ -39,6 +40,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const result = validateUploadInput(body);
 
 	if (!result.ok) {
+		traceValidation('/api/uploads', result.errors);
 		return json({ errors: result.errors }, { status: 400 });
 	}
 
