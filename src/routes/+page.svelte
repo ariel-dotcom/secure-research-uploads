@@ -458,7 +458,7 @@
 <dialog
 	bind:this={confirmEl}
 	onclose={cancelDelete}
-	class="max-w-md rounded-lg border border-slate-200 p-0 backdrop:bg-slate-900/40"
+	class="m-auto max-w-md rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40"
 >
 	{#if pendingDelete}
 		<div class="flex flex-col gap-4 p-6">
@@ -502,7 +502,7 @@
 <dialog
 	bind:this={viewerEl}
 	onclose={closeViewer}
-	class="max-h-[90vh] max-w-[90vw] rounded-lg border border-slate-200 p-0 backdrop:bg-slate-900/70"
+	class="m-auto max-h-[90vh] max-w-[90vw] rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/70"
 >
 	{#if viewing}
 		<div class="flex flex-col gap-3 p-4">
@@ -531,10 +531,10 @@
 				<img
 					src={viewUrl}
 					alt={viewing.filename}
-					class="max-h-[70vh] max-w-full rounded object-contain"
+					class="mx-auto max-h-[70vh] max-w-full rounded object-contain"
 				/>
 			{:else}
-				<p class="p-8 text-center text-sm text-slate-500">Opening image...</p>
+				<p class="min-h-48 min-w-96 p-8 text-center text-sm text-slate-500">Opening image...</p>
 			{/if}
 		</div>
 	{/if}
