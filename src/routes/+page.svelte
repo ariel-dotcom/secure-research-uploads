@@ -4,7 +4,7 @@
 		ALLOWED_CONTENT_TYPES,
 		MAX_UPLOAD_BYTES,
 		STATUS_TEXT,
-		TERMINAL_STATUSES,
+		SERVER_ADVANCING_STATUSES,
 		formatBytes,
 		type UploadView
 	} from '$lib/uploads';
@@ -51,16 +51,15 @@
 	const POLL_MS = 1500;
 
 	$effect(() => {
-		// Reads `records` directly, and deliberately not a $derived boolean.
-		//
-		// This effect has to re-run after every refresh in order to schedule the
-		// next one. A $derived memoises on equality, so a "is anything still in
-		// flight?" boolean would stay true through pending -> uploaded -> queued
-		// -> processing and never notify this effect again: exactly one poll
-		// would ever be scheduled, and the row would sit at its first status
-		// until the page was reloaded by hand. Assigning a fresh array to
-		// `records` always notifies, so the chain keeps going.
-		const stillWorking = records.some((record) => !TERMINAL_STATUSES.includes(record.status));
+		// Reads `records` directly, deliberately not a $derived boolean: $derived
+		// memoises on equality, so a "still working?" flag would stay true and
+		// never re-notify, scheduling exactly one poll ever. A fresh array always
+		// notifies, so the chain keeps going.
+		// Only statuses the server advances itself - a `pending` record waits on
+		// a browser, so polling one would never end.
+		const stillWorking = records.some((record) =>
+			SERVER_ADVANCING_STATUSES.includes(record.status)
+		);
 		if (!stillWorking) return;
 
 		const timer = setTimeout(refresh, POLL_MS);
@@ -68,7 +67,7 @@
 	});
 
 	const inFlightCount = $derived(
-		records.filter((record) => !TERMINAL_STATUSES.includes(record.status)).length
+		records.filter((record) => SERVER_ADVANCING_STATUSES.includes(record.status)).length
 	);
 
 	// Both panels stay mounted in state - only the rendering switches - so

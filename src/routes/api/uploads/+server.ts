@@ -8,6 +8,7 @@ import { createPresignedUpload } from '$lib/server/storage';
 import { validateUploadInput } from '$lib/server/validation';
 import { requireActor, toUploadView } from '$lib/server/responses';
 import { traceValidation } from '$lib/server/debug';
+import { expireStalePendingUploads } from '$lib/server/expire-pending';
 import type { RequestHandler } from './$types';
 
 /**
@@ -17,6 +18,10 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = async ({ locals }) => {
 	const actor = requireActor(locals.actor);
+
+	// On the read path because this app has no scheduler; production would run
+	// it as a scheduled job. Noted in the README rather than left as a surprise.
+	await expireStalePendingUploads(actor.companyId);
 
 	// The only read that does not go through requireAccessibleUpload(), so the
 	// only place the soft-delete filter has to be repeated.

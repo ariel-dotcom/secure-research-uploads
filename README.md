@@ -409,10 +409,12 @@ Roughly in the order I would do them:
    that is deliberately fake. It is isolated in `hooks.server.ts` and
    `dev-user.ts` precisely so that swapping it changes those files and nothing
    else — every route already reads a server-resolved actor.
-2. **Clean up abandoned `pending` records.** A user who closes the tab mid-
-   upload leaves a row with no object behind it. A scheduled job should expire
-   records that have been pending longer than the upload URL could possibly
-   live, and a bucket lifecycle rule should drop orphaned objects.
+2. **Move the abandoned-upload sweep off the read path.** A tab closed
+   mid-upload leaves a record at `pending` with no object behind it.
+   `expireStalePendingUploads()` now fails those once the presigned URL could
+   no longer possibly work, but it runs on the list request because this app
+   has no scheduler. In production it belongs in a scheduled job, alongside a
+   bucket lifecycle rule to drop the orphaned objects it leaves in storage.
 3. **Verify file content, not just the declared type.** The policy enforces the
    content type the browser _claimed_. Reading magic bytes server-side at
    confirm time would catch a file that is not the image it says it is.

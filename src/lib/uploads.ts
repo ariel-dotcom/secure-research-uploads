@@ -63,3 +63,10 @@ export interface UploadView {
 	failureReason: string | null;
 	createdAt: string;
 }
+
+/**
+ * Statuses the server moves by itself, so the page polls only while a record is
+ * in one. `pending` is deliberately absent: it waits on a browser, not on us,
+ * and a tab closed mid-upload would leave the page polling forever.
+ */
+export const SERVER_ADVANCING_STATUSES: UploadStatus[] = ['uploaded', 'queued', 'processing'];
