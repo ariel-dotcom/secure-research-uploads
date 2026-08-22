@@ -5,6 +5,7 @@
 		MAX_UPLOAD_BYTES,
 		STATUS_TEXT,
 		SERVER_ADVANCING_STATUSES,
+		hasStoredFile,
 		formatBytes,
 		type UploadView
 	} from '$lib/uploads';
@@ -403,7 +404,7 @@
 							<button
 								type="button"
 								onclick={() => openViewer(record)}
-								disabled={record.status === 'pending'}
+								disabled={!hasStoredFile(record)}
 								class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium
 									hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400
 									disabled:hover:bg-white"
@@ -414,7 +415,7 @@
 							<button
 								type="button"
 								onclick={() => download(record.id)}
-								disabled={record.status === 'pending' || downloading === record.id}
+								disabled={!hasStoredFile(record) || downloading === record.id}
 								class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium
 									hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400
 									disabled:hover:bg-white"

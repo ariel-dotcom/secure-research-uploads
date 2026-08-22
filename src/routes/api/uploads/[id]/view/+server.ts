@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { requireAccessibleUpload } from '$lib/server/load-upload';
 import { createPresignedView } from '$lib/server/storage';
+import { hasStoredFile } from '$lib/uploads';
 import { requireActor } from '$lib/server/responses';
 import { DOWNLOAD_URL_TTL_SECONDS } from '$lib/server/config';
 import type { RequestHandler } from './$types';
@@ -16,9 +17,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const actor = requireActor(locals.actor);
 	const row = await requireAccessibleUpload(actor, params.id);
 
-	if (row.status === 'pending') {
+	if (!hasStoredFile(row)) {
 		// Authorization already passed, so saying plainly what is wrong is safe.
-		error(409, 'This upload has no file yet.');
+		error(409, 'This upload has no file.');
 	}
 
 	const url = await createPresignedView(row.objectKey, row.filename);

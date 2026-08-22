@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { GET as listUploads, POST as createUpload } from '../../routes/api/uploads/+server';
+import { GET as getDownloadUrl } from '../../routes/api/uploads/[id]/download/+server';
+import { GET as getViewUrl } from '../../routes/api/uploads/[id]/view/+server';
 import { UPLOAD_URL_TTL_SECONDS } from './config';
 import type { UploadView } from '../uploads';
 import {
@@ -10,6 +12,7 @@ import {
 	PNG_BYTES,
 	bodyOf,
 	prepareDatabase,
+	refusal,
 	requestEvent,
 	resetUploads
 } from './test-support';
@@ -70,6 +73,20 @@ describe('Uploads abandoned before the bytes arrived', () => {
 		const shown = listed.uploads.find((u) => u.id === created.upload.id);
 		expect(shown?.status).toBe('failed');
 		expect(shown?.failureReason).toContain('did not finish');
+	});
+
+	it('will not sign a URL for a record whose bytes never arrived', async () => {
+		const created = await bodyOf<{ upload: UploadView }>(
+			await createUpload(requestEvent({ actor: dana, body: validMetadata }))
+		);
+
+		// No object, so signing would hand the user storage's XML error page.
+		for (const route of [getDownloadUrl, getViewUrl]) {
+			const refused = await refusal(() =>
+				route(requestEvent({ actor: dana, params: { id: created.upload.id } }))
+			);
+			expect(refused.status).toBe(409);
+		}
 	});
 
 	it('does not touch uploads that completed normally', async () => {

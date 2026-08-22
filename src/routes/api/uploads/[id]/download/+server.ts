@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { requireAccessibleUpload } from '$lib/server/load-upload';
 import { createPresignedDownload } from '$lib/server/storage';
+import { hasStoredFile } from '$lib/uploads';
 import { requireActor, toUploadView } from '$lib/server/responses';
 import { DOWNLOAD_URL_TTL_SECONDS } from '$lib/server/config';
 import type { RequestHandler } from './$types';
@@ -17,12 +18,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const actor = requireActor(locals.actor);
 	const row = await requireAccessibleUpload(actor, params.id);
 
-	if (row.status === 'pending') {
-		// Nothing has been uploaded against this record yet, so there is no
-		// object to sign. Safe to say so plainly: authorization already passed,
-		// which means this record belongs to the caller's own company. A record
-		// belonging to anyone else never reaches this line.
-		error(409, 'This upload has no file yet.');
+	if (!hasStoredFile(row)) {
+		// Signing a URL for an object that was never stored would hand the user
+		// storage's raw XML error page. Safe to say plainly what is wrong -
+		// authorization already passed, so this record is the caller's own.
+		error(409, 'This upload has no file.');
 	}
 
 	const url = await createPresignedDownload(row.objectKey, row.filename);

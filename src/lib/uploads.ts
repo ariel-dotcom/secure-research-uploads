@@ -70,3 +70,15 @@ export interface UploadView {
  * and a tab closed mid-upload would leave the page polling forever.
  */
 export const SERVER_ADVANCING_STATUSES: UploadStatus[] = ['uploaded', 'queued', 'processing'];
+
+/**
+ * Whether bytes actually exist for this record. A better test than the status,
+ * because `failed` covers two cases: an abandoned upload has no file, while a
+ * failed *processing* run has its file intact.
+ *
+ * Asked by the UI to decide what to offer and by the routes to decide what to
+ * allow - the button is a courtesy, the server is the rule.
+ */
+export function hasStoredFile(record: Pick<UploadView, 'sizeBytes'>): boolean {
+	return record.sizeBytes !== null;
+}
