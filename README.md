@@ -121,14 +121,15 @@ URL stops working, that confirm cannot find an object that was never uploaded â€
 are all properties of the storage service. A mocked MinIO would only prove that
 the mock agrees with my assumptions, which is the one thing not in doubt.
 
-| File                                        | What it covers                                                      |
-| ------------------------------------------- | ------------------------------------------------------------------- |
-| `src/lib/server/authz.test.ts`              | the access rule itself, with plain objects                          |
-| `src/lib/server/object-key.test.ts`         | filename sanitising and path traversal                              |
-| `src/lib/server/validation.test.ts`         | metadata rules                                                      |
-| `src/lib/server/access-control.test.ts`     | the four tests the brief requires, numbered to match                |
-| `src/lib/server/upload-reliability.test.ts` | four extra tests: missing object, double confirm, traversal, expiry |
-| `src/lib/server/view-and-delete.test.ts`    | the view and delete features, which are not in the brief            |
+| File                                        | What it covers                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------ |
+| `src/lib/server/authz.test.ts`              | the access rule itself, with plain objects                               |
+| `src/lib/server/object-key.test.ts`         | filename sanitising and path traversal                                   |
+| `src/lib/server/validation.test.ts`         | metadata rules                                                           |
+| `src/lib/server/access-control.test.ts`     | the four tests the brief requires, numbered to match                     |
+| `src/lib/server/upload-reliability.test.ts` | four extra tests: missing object, double confirm, traversal, expiry      |
+| `src/lib/server/view-and-delete.test.ts`    | the view and delete features, which are not in the brief                 |
+| `src/lib/server/stale-pending.test.ts`      | uploads abandoned mid-transfer, and refusing to sign when no file exists |
 
 ## 4. Data model
 
@@ -154,7 +155,7 @@ fake one.
 | `object_key`                 | where the bytes are in MinIO. Generated server-side; never leaves the server         |
 | `status`                     | `pending`, `uploaded`, `queued`, `processing`, `completed`, `failed`                 |
 | `size_bytes`, `content_type` | filled at confirm time from MinIO's view of the object, not from the browser's claim |
-| `failure_reason`             | shown to the user when processing fails                                              |
+| `failure_reason`             | why it failed - a processing error, or an upload that never arrived                  |
 | `deleted_at`                 | soft delete. Null means live; a timestamp means withdrawn from the app but retained  |
 | `created_at`, `updated_at`   | timestamps                                                                           |
 
@@ -261,6 +262,7 @@ Browser --- GET /api/uploads/{id}/download ---> SvelteKit
                                        - is this a uuid?
                                        - does the row exist?
                                        - canAccess(actor, row)?
+                                       - was it deleted?
                                                  |
                                      any failure -> 404, identical body
                                                  |
@@ -515,6 +517,8 @@ Everything below was added deliberately. None of it was in the employer's spec.
 | 14  | **Two tabs instead of one long page**                                                         | Presentation only, on a single route. Not pagination, which the brief rules out.                              |
 | 15  | **View** - opens the image in a modal from a short-lived inline URL                           | Same authorization and the same direct browser-to-MinIO path as download; only the disposition differs.       |
 | 16  | **Delete** - soft delete, behind a confirmation dialog                                        | The first destructive route, so the shared authorization check now protects data rather than only privacy.    |
+| 17  | **`DEBUG_AUTHZ` traces every access decision to the terminal**                                | Makes the rule observable while demonstrating it. Server-side only - responses are identical with it on.      |
+| 18  | **Abandoned uploads resolve themselves**                                                      | A tab refreshed mid-upload left a record stuck at `pending` for good, and the page polled it forever.         |
 
 ## Viewing and deleting
 
@@ -628,7 +632,11 @@ For a walkthrough, in the order it makes sense to read:
 | `src/routes/api/uploads/+server.ts`               | create the record and sign the upload URL; list             |
 | `src/routes/api/uploads/[id]/confirm/+server.ts`  | verify the bytes arrived; idempotent                        |
 | `src/routes/api/uploads/[id]/download/+server.ts` | authorize, then sign                                        |
+| `src/routes/api/uploads/[id]/view/+server.ts`     | the same, but rendered inline rather than saved             |
+| `src/routes/api/uploads/[id]/+server.ts`          | one record, and the soft delete                             |
 | `src/lib/server/storage.ts`                       | the only file that holds MinIO credentials                  |
 | `src/lib/server/object-key.ts`                    | filename sanitising and key construction                    |
 | `src/lib/upload-client.ts`                        | the browser half: create, send bytes, confirm               |
 | `src/lib/server/processing.ts`                    | simulated pipeline, with its limitations written down       |
+| `src/lib/server/expire-pending.ts`                | resolves uploads whose bytes never arrived                  |
+| `src/lib/server/debug.ts`                         | development tracing, terminal only                          |
